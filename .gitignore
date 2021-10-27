@@ -1,0 +1,7 @@
+.vscode/
+*__pycache__*
+data/
+*.npy
+*.png
+*.sh
+!scripts/imagenet.sh
