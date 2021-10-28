@@ -53,7 +53,7 @@ parser.add_argument('--wd', type=float, default=0.0005, help='Weight decay (L2 p
 parser.add_argument('--mixture_width', default=3, help='Number of augmentation chains to mix per augmented example')
 parser.add_argument('--mixture_depth', default=-1, help='Depth of augmentation chains. -1 denotes stochastic depth in [1, 3]')
 parser.add_argument('--aug_severity', default=3, help='Severity of base augmentation operators')
-# adv parameters:
+# augmax parameters:
 parser.add_argument('--attacker', default='fat', choices=['pgd', 'fat'], help='If true, targeted attack')
 parser.add_argument('--targeted', action='store_true', help='If true, targeted attack')
 parser.add_argument('--alpha', type=float, default=0.1, help='attack step size')
@@ -244,7 +244,7 @@ def train(gpu_id, ngpus_per_node):
         ## training:
         model.train()
         requires_grad_(model, True)
-        accs, accs_adv, losses = AverageMeter(), AverageMeter(), AverageMeter()
+        accs, accs_augmax, losses = AverageMeter(), AverageMeter(), AverageMeter()
         for i, (images_tuples, labels) in enumerate(train_loader):
 
             # get batch:
@@ -298,10 +298,11 @@ def train(gpu_id, ngpus_per_node):
 
             # metrics:
             accs.append((logits.argmax(1) == labels).float().mean().item())
+            accs_augmax.append((logits_augmax_1.argmax(1) == labels).float().mean().item())
             losses.append(loss.item())
 
             if i % 50 == 0:
-                train_str = 'Epoch %d-%d | Train | Loss: %.4f (%.4f, %.4f), SA: %.4f, RA: %.4f' % (epoch, i, losses.avg, loss_clean, loss_cst, accs.avg, accs_adv.avg)
+                train_str = 'Epoch %d-%d | Train | Loss: %.4f (%.4f, %.4f), SA: %.4f, RA: %.4f' % (epoch, i, losses.avg, loss_clean, loss_cst, accs.avg, accs_augmax.avg)
                 if gpu_id == 0:
                     print(train_str)
         # lr schedualr update at the end of each epoch:
