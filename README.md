@@ -34,7 +34,7 @@ For example:
 AugMax-DuBIN on CIFAR10 with ResNeXt29:
 
 ```
-NCCL_P2P_DISABLE=1 python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds cifar10 --md ResNeXt29 --Lambda 10
+python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds cifar10 --md ResNeXt29 --Lambda 10
 ```
 
 AugMax-DuBIN + DeepAug on ImageNet with ResNet18:
