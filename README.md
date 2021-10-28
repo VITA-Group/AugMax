@@ -23,6 +23,8 @@ We propose AugMax, a data augmentation framework to unify the diversity and hard
 
 ## Training
 
+Assume all datasets are stored in `<data_root_path>`. For example, CIFAR-10 is in `<data_root_path>/cifar-10-batches-py/` and ImageNet training set is in `<data_root_path>/imagenet/train`. 
+
 AugMax-DuBIN training on `<dataset>` with `<backbone>`:
 
 ```
@@ -52,13 +54,13 @@ The pretrained models are available on [Google Drive](https://drive.google.com/d
 To test the model trained on `<dataset>` with `<backbone>` and saved to `<ckpt_path>`:
 
 ```
-python test.py --gpu 0 --ds <dataset> --drp /ssd1/haotao/datasets --md <backbone> --mode all --ckpt_path <ckpt_path>
+python test.py --gpu 0 --ds <dataset> --drp <data_root_path> --md <backbone> --mode all --ckpt_path <ckpt_path>
 ```
 
 For example:
 
 ```
-python test.py --gpu 0 --ds cifar10 --drp /ssd1/haotao/datasets --md ResNet18_DuBIN --mode all --ckpt_path augmax_training/cifar10/ResNet18_DuBIN/fat-1-untargeted-10-0.1_Lambda10-jsd4_e200-b256_sgd-lr0.1-m0.9-wd0.0005_cos
+python test.py --gpu 0 --ds cifar10 --drp /ssd1/haotao/datasets --md ResNet18_DuBIN --mode all --ckpt_path augmax_training/cifar10/ResNet18_DuBIN/fat-1-untargeted-5-0.1_Lambda10.0_e200-b256_sgd-lr0.1-m0.9-wd0.0005_cos
 ```
 
 ## Citation
