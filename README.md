@@ -25,24 +25,36 @@ We propose AugMax, a data augmentation framework to unify the diversity and hard
 
 Assume all datasets are stored in `<data_root_path>`. For example, CIFAR-10 is in `<data_root_path>/cifar-10-batches-py/` and ImageNet training set is in `<data_root_path>/imagenet/train`. 
 
-AugMax-DuBIN training on `<dataset>` with `<backbone>`:
+AugMax-DuBIN training on `<dataset>` with `<backbone>` (The outputs will be saved in `<save_root_path>`):
 
 ```
-python augmax_training_ddp.py --gpu 0 --drp <data_root_path> --ds <dataset> --md <backbone> --Lambda 10
+python augmax_training_ddp.py --gpu 0 --srp <where_you_save_the_outputs> --drp <where_you_store_datasets> --ds <dataset> --md <backbone> --Lambda <lambda_value> --steps <inner_max_step_number>
 ```
 
 For example:
 
-AugMax-DuBIN on CIFAR10 with ResNeXt29:
+AugMax-DuBIN on CIFAR10 with ResNeXt29 (By default we use `Lambda=10` on CIFAR10/100 and Tiny ImageNet.):
 
 ```
-python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds cifar10 --md ResNeXt29 --Lambda 10
+python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds cifar10 --md ResNeXt29 --Lambda 10 --steps 10
+```
+
+AugMax-DuBIN on CIFAR100 with ResNet18 (We use `Lambda=1` instead of `Lambda=10` in this particular experiment, as noted in the paper.):
+
+```
+python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds cifar100 --md ResNet18 --Lambda 1 --steps 10
+```
+
+AugMax-DuBIN on ImageNet with ResNet18 (By default we use `Lambda=12` on ImageNet. On ImageNet, **weight decay `wd=1e-4`** instead of the default value in the code, which is for CIFAR-level datasets.):
+
+```
+NCCL_P2P_DISABLE=1 python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds IN --md ResNet18 --Lambda 12 -e 90 --wd 1e-4 --decay multisteps --de 30 60 --ddp --dist_url tcp://localhost:23456
 ```
 
 AugMax-DuBIN + DeepAug on ImageNet with ResNet18:
 
 ```
-NCCL_P2P_DISABLE=1 python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds IN --md ResNet18 --deepaug --Lambda 10 -e 30 --wd 1e-4 --decay multisteps --de 10 20 --ddp --dist_url tcp://localhost:23456
+NCCL_P2P_DISABLE=1 python augmax_training_ddp.py --gpu 0 --drp /ssd1/haotao/datasets --ds IN --md ResNet18 --deepaug --Lambda 12 -e 30 --wd 1e-4 --decay multisteps --de 10 20 --ddp --dist_url tcp://localhost:23456
 ```
 
 ## Pretrained models
