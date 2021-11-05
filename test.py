@@ -2,14 +2,11 @@ import os, sys, argparse, time, random
 from functools import partial
 sys.path.append('./')
 import numpy as np 
-from advertorch.attacks import PGDAttack
 
-import torch, torchvision
-import torch.backends.cudnn as cudnn
+import torch
 import torch.nn.functional as F
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import DataLoader
 
-from augmax_modules import augmentations
 from models.cifar10.resnet_DuBIN import ResNet18_DuBIN
 from models.cifar10.wideresnet_DuBIN import WRN40_DuBIN
 from models.cifar10.resnext_DuBIN import ResNeXt29_DuBIN
@@ -18,7 +15,7 @@ from models.imagenet.resnet_DuBIN import ResNet18_DuBIN as INResNet18_DuBIN
 
 from dataloaders.cifar10 import cifar_dataloaders, cifar_c_testloader, cifar10_1_testloader, cifar_random_affine_test_set
 from dataloaders.tiny_imagenet import tiny_imagenet_dataloaders, tiny_imagenet_c_testloader
-from dataloaders.imagenet import imagenet_dataloaders, imagenet_c_testloader, imagenet_v2_testloader
+from dataloaders.imagenet import imagenet_dataloaders, imagenet_c_testloader
 
 from utils.utils import *
 
@@ -27,16 +24,15 @@ parser.add_argument('--gpu', default='0')
 parser.add_argument('--cpus', type=int, default=4)
 # dataset:
 parser.add_argument('--dataset', '--ds', default='cifar10', choices=['cifar10', 'cifar100', 'tin', 'IN'], help='which dataset to use')
-parser.add_argument('--data_root_path', '--drp', default='/ssd1/haotao/datasets/', help='(Tiny-)ImageNet dataset path.')
-parser.add_argument('--v2_format', choices=['a', 'b', 'c'], default='b', help='Which format of ImageNet-V2 to use.')
+parser.add_argument('--data_root_path', '--drp', default='/ssd1/haotao/datasets/', help='Where you save all your datasets.')
 parser.add_argument('--model', '--md', default='WRN40', choices=['ResNet18_DuBIN', 'WRN40_DuBIN', 'ResNeXt29_DuBIN'], help='which model to use')
-parser.add_argument('--widen_factor', '--widen', default=2, type=int, help='which model to use')
+parser.add_argument('--widen_factor', '--widen', default=2, type=int, help='widen factor for WRN')
 # 
 parser.add_argument('--test_batch_size', '--tb', type=int, default=1000)
 parser.add_argument('--ckpt_path', default='')
-parser.add_argument('--mode', default='clean', choices=['clean', 'c', 'v2', 'sta', 'all'], help='')
-parser.add_argument('--k', default=10, type=int, help='worst-of-k spatial attack')
-parser.add_argument('--save_root_path', '--srp', default='/ssd1/haotao')
+parser.add_argument('--mode', default='clean', choices=['clean', 'c', 'v2', 'sta', 'all'], help='Which dataset to evaluate on')
+parser.add_argument('--k', default=10, type=int, help='hyperparameter k in worst-of-k spatial attack')
+parser.add_argument('--save_root_path', '--srp', default='/ssd1/haotao', help='where you save the outputs')
 args = parser.parse_args()
 print(args)
 
@@ -86,6 +82,9 @@ fp = open(os.path.join(args.save_root_path, 'AugMax_results', args.ckpt_path, 't
 
 ## Test on CIFAR:
 def val_cifar():
+    '''
+    Evaluate on CIFAR10/100
+    '''
     _, val_data = cifar_dataloaders(data_dir=args.data_root_path, num_classes=num_classes, train_batch_size=256, test_batch_size=args.test_batch_size, num_workers=args.cpus, AugMax=None)
     test_loader = DataLoader(val_data, batch_size=args.test_batch_size, shuffle=False, num_workers=args.cpus, pin_memory=True)
 
@@ -115,7 +114,7 @@ def val_cifar():
 
 def val_cifar_worst_of_k_affine(K):
     '''
-    Test model robustness against spatial transform attacks using worst-of-k method.
+    Test model robustness against spatial transform attacks using worst-of-k method on CIFAR10/100.
     '''
     model.eval()
     ts = time.time()
@@ -156,6 +155,9 @@ def val_cifar_worst_of_k_affine(K):
     fp.flush()
 
 def val_cifar_c():
+    '''
+    Evaluate on CIFAR10/100-C
+    '''
     test_seen_c_loader_list = []
     for corruption in CORRUPTIONS:
         test_c_loader = cifar_c_testloader(corruption=corruption, data_dir=args.data_root_path, num_classes=num_classes, 
@@ -252,6 +254,9 @@ def find_mCE(target_model_c_CE, anchor_model_c_CE):
     return mCE
 
 def val_tin():
+    '''
+    Evaluate on Tiny ImageNet
+    '''
     _, val_data = tiny_imagenet_dataloaders(data_dir=os.path.join(args.data_root_path, 'tiny-imagenet-200'), AugMax=None)
     val_loader = DataLoader(val_data, batch_size=args.test_batch_size, shuffle=False, num_workers=args.cpus, pin_memory=True)
 
@@ -280,6 +285,9 @@ def val_tin():
     fp.flush()
 
 def val_tin_c():
+    '''
+    Evaluate on Tiny ImageNet-C
+    '''
     test_seen_c_loader_list = []
     for corruption in CORRUPTIONS:
         test_seen_c_loader_list_c = []
@@ -341,6 +349,9 @@ def val_tin_c():
 
 ## Test on ImageNet:
 def val_IN():
+    '''
+    Evaluate on ImageNet
+    '''
     _, val_data = imagenet_dataloaders(data_dir=os.path.join(args.data_root_path, 'imagenet'), AugMax=None)
     val_loader = DataLoader(val_data, batch_size=args.test_batch_size, shuffle=False, num_workers=args.cpus, pin_memory=True)
 
@@ -375,6 +386,9 @@ AlexNet_ERR = [
     0.606500
 ]
 def val_IN_c():
+    '''
+    Evaluate on ImageNet-C
+    '''
     test_seen_c_loader_list = []
     for corruption in CORRUPTIONS:
         test_seen_c_loader_list_c = []

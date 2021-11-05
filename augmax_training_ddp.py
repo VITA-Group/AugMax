@@ -1,17 +1,15 @@
 '''
 Training with AugMax data augmentation 
 '''
-import os, sys, argparse, time, socket
-from functools import partial
+import os, sys, argparse, time
 sys.path.append('./')
 import numpy as np 
 
 import torch
 import torch.nn.functional as F
 from torch.optim import SGD, Adam, lr_scheduler
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import DataLoader
 import torch.distributed as dist
-import torch.multiprocessing as mp
 
 from augmax_modules import augmentations
 from augmax_modules.augmax import AugMaxDataset, AugMaxModule, AugMixModule
@@ -36,17 +34,17 @@ parser.add_argument('--gpu', default='0')
 parser.add_argument('--num_workers', '--cpus', default=16, type=int)
 # dataset:
 parser.add_argument('--dataset', '--ds', default='cifar10', choices=['cifar10', 'cifar100', 'tin', 'IN'], help='which dataset to use')
-parser.add_argument('--data_root_path', '--drp', help='ImageNet dataset path. (Only effective when using (Tiny) ImageNet)')
+parser.add_argument('--data_root_path', '--drp', help='Where you save all your datasets.')
 parser.add_argument('--model', '--md', default='WRN40', choices=['ResNet18', 'ResNet50', 'WRN40', 'ResNeXt29'], help='which model to use')
-parser.add_argument('--widen_factor', '--widen', default=2, type=int, help='which model to use')
+parser.add_argument('--widen_factor', '--widen', default=2, type=int, help='widen factor for WRN')
 # Optimization options
 parser.add_argument('--epochs', '-e', type=int, default=200, help='Number of epochs to train.')
 parser.add_argument('--decay_epochs', '--de', default=[100,150], nargs='+', type=int, help='milestones for multisteps lr decay')
 parser.add_argument('--opt', default='sgd', choices=['sgd', 'adam'], help='which optimizer to use')
 parser.add_argument('--decay', default='cos', choices=['cos', 'multisteps'], help='which lr decay method to use')
 parser.add_argument('--lr', type=float, default=0.1, help='Initial learning rate.')
-parser.add_argument('--batch_size', '-b', type=int, default=256, help='Batch size.')
-parser.add_argument('--test_batch_size', '--tb', type=int, default=1000)
+parser.add_argument('--batch_size', '-b', type=int, default=256, help='Batch size for training.')
+parser.add_argument('--test_batch_size', '--tb', type=int, default=1000, help='Batch size for validation.')
 parser.add_argument('--momentum', '-m', type=float, default=0.9, help='Momentum.')
 parser.add_argument('--wd', type=float, default=0.0005, help='Weight decay (L2 penalty).')
 # AugMix options
@@ -54,16 +52,17 @@ parser.add_argument('--mixture_width', default=3, help='Number of augmentation c
 parser.add_argument('--mixture_depth', default=-1, help='Depth of augmentation chains. -1 denotes stochastic depth in [1, 3]')
 parser.add_argument('--aug_severity', default=3, help='Severity of base augmentation operators')
 # augmax parameters:
-parser.add_argument('--attacker', default='fat', choices=['pgd', 'fat'], help='If true, targeted attack')
+parser.add_argument('--attacker', default='fat', choices=['pgd', 'fat'], help='How to solve the inner maximization problem.')
 parser.add_argument('--targeted', action='store_true', help='If true, targeted attack')
 parser.add_argument('--alpha', type=float, default=0.1, help='attack step size')
-parser.add_argument('--tau', type=int, default=1)
-parser.add_argument('--steps', type=int, default=5)
-parser.add_argument('--Lambda', type=float, default=10)
+parser.add_argument('--tau', type=int, default=1, help='Early stop iteration for FAT.')
+parser.add_argument('--steps', type=int, default=5, help='The maximum iteration for the attack (FAT/PGD).')
+parser.add_argument('--Lambda', type=float, default=10, help='Trade-off hyper-parameter in loss function.')
 # others:
-parser.add_argument('--deepaug', action='store_true', help='If true, use deep augmented training set. (Only works for TIN.)')
+parser.add_argument('--deepaug', action='store_true', help='If true, use deep augmented training set. (Only works for ImageNet.)')
 parser.add_argument('--resume', action='store_true', help='If true, resume from early stopped ckpt')
-parser.add_argument('--save_root_path', '--srp', default='/ssd1/haotao/')
+parser.add_argument('--save_root_path', '--srp', default='/ssd1/haotao/', help='where you save the outputs')
+# DDP settings:
 parser.add_argument('--ddp', action='store_true', help='If true, use distributed data parallel')
 parser.add_argument('--ddp_backend', '--ddpbed', default='nccl', choices=['nccl', 'gloo', 'mpi'], help='If true, use distributed data parallel')
 parser.add_argument('--num_nodes', default=1, type=int, help='Number of nodes')
@@ -255,12 +254,12 @@ def train(gpu_id, ngpus_per_node):
             labels = labels.to(device)
 
             # switch to BN-A:
-            if 'DuBN' in model_fn.__name__ or  'DuBIN' in model_fn.__name__:
-                model.apply(lambda m: setattr(m, 'route', 'A')) # 
+            if 'DuBIN' in model_fn.__name__:
+                model.apply(lambda m: setattr(m, 'route', 'A')) # use auxilary BN for AugMax images
 
-            # generate and forward aug images:
+            # generate and forward augmax images:
             with ctx_noparamgrad_and_eval(model):
-                # generate augmax1:
+                # generate augmax images:
                 if args.targeted:
                     targets = torch.fmod(labels + torch.randint(low=1, high=num_classes, size=labels.size()).to(device), num_classes)
                     imgs_augmax_1, _, _ = attacker.attack(augmax_model, model, images_tuple, labels=labels, targets=targets, device=device)
@@ -271,8 +270,8 @@ def train(gpu_id, ngpus_per_node):
 
 
             # switch to BN-M:
-            if 'DuBN' in model_fn.__name__ or  'DuBIN' in model_fn.__name__:
-                model.apply(lambda m: setattr(m, 'route', 'M')) # use main BN
+            if 'DuBIN' in model_fn.__name__:
+                model.apply(lambda m: setattr(m, 'route', 'M')) # use main BN for normal images
 
             # generate augmix images:
             imgs_augmix_1 = augmix_model(images_tuple_2)
