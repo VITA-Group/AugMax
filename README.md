@@ -28,7 +28,7 @@ Assume all datasets are stored in `<data_root_path>`. For example, CIFAR-10 is i
 AugMax-DuBIN training on `<dataset>` with `<backbone>` (The outputs will be saved in `<save_root_path>`):
 
 ```
-python augmax_training_ddp.py --gpu 0 --srp <where_you_save_the_outputs> --drp <where_you_store_datasets> --ds <dataset> --md <backbone> --Lambda <lambda_value> --steps <inner_max_step_number>
+python augmax_training_ddp.py --gpu 0 --srp <where_you_save_the_outputs> --drp <data_root_path> --ds <dataset> --md <backbone> --Lambda <lambda_value> --steps <inner_max_step_number>
 ```
 
 For example:
