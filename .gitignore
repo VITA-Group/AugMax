@@ -5,3 +5,4 @@ data/
 *.png
 *.sh
 !scripts/imagenet.sh
+results/*
